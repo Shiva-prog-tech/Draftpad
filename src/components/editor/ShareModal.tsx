@@ -36,8 +36,8 @@ export function ShareModal({ docId, collaborators, onClose, onUpdate, currentUse
         body: JSON.stringify({ email, role }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Failed to invite'); }
-      else { setSuccess(`Invite sent to ${email}`); setEmail(''); }
+      if (!res.ok) { setError(data.error || 'Failed to send invite'); }
+      else { setSuccess(`Invite email sent to ${email}`); setEmail(''); }
     } catch { setError('Something went wrong'); }
     finally { setLoading(false); }
   };

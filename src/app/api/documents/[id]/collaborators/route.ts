@@ -27,20 +27,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const inviteEmail = parsed.data.email.toLowerCase();
 
-  // Check if already a collaborator
-  const already = doc.collaborators.find((c: any) => c.email === inviteEmail);
-  if (already) return NextResponse.json({ error: 'Already a collaborator' }, { status: 409 });
+  // Block if already an active collaborator (case-insensitive)
+  const already = doc.collaborators.find(
+    (c: any) => c.email?.toLowerCase() === inviteEmail,
+  );
+  if (already) {
+    return NextResponse.json(
+      { error: `${inviteEmail} is already a collaborator on this document` },
+      { status: 409 },
+    );
+  }
 
-  // Check if a pending invite already exists for this email+doc
-  const pending = await InviteTokenModel.findOne({
+  // Delete any existing pending invite for this email+doc so we can resend.
+  // This allows the owner to re-invite (e.g. email bounced, link expired early).
+  await InviteTokenModel.deleteMany({
     docId: id,
     email: inviteEmail,
     acceptedAt: null,
-    expiresAt: { $gt: new Date() },
   });
-  if (pending) return NextResponse.json({ error: 'Invite already sent to this email' }, { status: 409 });
 
-  // Create invite token (expires in 48 hours)
+  // Create a fresh invite token (expires in 48 hours)
   const token = nanoid(32);
   await InviteTokenModel.create({
     token,
