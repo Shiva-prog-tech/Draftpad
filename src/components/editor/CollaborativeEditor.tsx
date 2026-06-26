@@ -145,7 +145,7 @@ export function CollaborativeEditor({ doc }: Props) {
             <Clock className="w-3.5 h-3.5" /><span className="hidden sm:inline">History</span>
           </button>
           <button
-            onClick={() => setShowShare(true)}
+            onClick={() => { setShowShare(true); refreshCollabs(); }}
             className="flex items-center gap-1.5 bg-[#6366F1] hover:bg-[#5254CC] text-white rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
           >
             <Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Share</span>

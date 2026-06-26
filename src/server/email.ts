@@ -1,14 +1,19 @@
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_SERVER_HOST,
-  port: Number(process.env.EMAIL_SERVER_PORT || 587),
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_SERVER_USER,
-    pass: process.env.EMAIL_SERVER_PASSWORD,
-  },
-});
+function createTransporter() {
+  const user = process.env.EMAIL_SERVER_USER;
+  const pass = process.env.EMAIL_SERVER_PASSWORD;
+
+  if (!user || !pass) {
+    throw new Error('EMAIL_SERVER_USER and EMAIL_SERVER_PASSWORD must be set in .env.local');
+  }
+
+  // Use Gmail service preset — handles host/port/TLS automatically and works with app passwords
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass },
+  });
+}
 
 export async function sendInviteEmail({
   to,
@@ -23,10 +28,13 @@ export async function sendInviteEmail({
   role: string;
   acceptUrl: string;
 }) {
+  const transporter = createTransporter();
+  const fromUser = process.env.EMAIL_SERVER_USER!;
   const roleLabel = role === 'editor' ? 'edit' : 'view';
 
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM || 'DraftPad <noreply@draftpad.io>',
+    // Gmail requires "from" to match the authenticated account
+    from: `Draftpad <${fromUser}>`,
     to,
     subject: `${inviterName} invited you to collaborate on "${docTitle}"`,
     html: `
@@ -79,7 +87,7 @@ export async function sendInviteEmail({
                 <tr>
                   <td style="background:${role === 'editor' ? 'rgba(99,102,241,0.12)' : 'rgba(113,113,122,0.12)'};border:1px solid ${role === 'editor' ? 'rgba(99,102,241,0.3)' : 'rgba(113,113,122,0.3)'};border-radius:6px;padding:4px 12px;">
                     <span style="color:${role === 'editor' ? '#818CF8' : '#A1A1AA'};font-size:13px;font-weight:600;">
-                      ${role === 'editor' ? '✏️ Editor' : '👁 Viewer'}
+                      ${role === 'editor' ? 'Editor' : 'Viewer'}
                     </span>
                   </td>
                 </tr>
@@ -108,7 +116,7 @@ export async function sendInviteEmail({
           <tr>
             <td align="center" style="padding-top:24px;">
               <p style="margin:0;color:#3F3F46;font-size:12px;">
-                Draftpad · Collaborative writing, simplified
+                Draftpad &middot; Collaborative writing, simplified
               </p>
             </td>
           </tr>
