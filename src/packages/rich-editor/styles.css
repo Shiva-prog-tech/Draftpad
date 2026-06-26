@@ -1,0 +1,107 @@
+/*
+ * @draftpad/rich-editor — portable stylesheet
+ *
+ * Import once in your app root:
+ *   import '@draftpad/rich-editor/styles';
+ *
+ * Then override any --re-* variable in :root to theme it:
+ *
+ *   :root {
+ *     --re-text-color: #F4F4F5;       <- dark theme example
+ *     --re-code-bg:    #1F1F23;
+ *   }
+ *
+ * Defaults are light-theme so zero config is needed on a white-background app.
+ */
+
+/* ── Variables (light defaults) ─────────────────────────────────── */
+:root {
+  --re-font-family:        Inter, system-ui, sans-serif;
+  --re-mono-font:         'JetBrains Mono', 'Fira Code', monospace;
+  --re-font-size:          16px;
+  --re-line-height:        1.8;
+
+  --re-text-color:         #111827;
+  --re-heading-color:      #111827;
+  --re-placeholder-color:  #9ca3af;
+  --re-link-color:         #6366f1;
+
+  --re-accent-color:       #6366f1;
+  --re-blockquote-color:   #6b7280;
+
+  --re-code-bg:            #f3f4f6;
+  --re-code-color:         #4f46e5;
+}
+
+/* ── Base ────────────────────────────────────────────────────────── */
+.editor-canvas {
+  font-family: var(--re-font-family);
+  font-size:   var(--re-font-size);
+  line-height: var(--re-line-height);
+  color:       var(--re-text-color);
+}
+
+.editor-canvas:focus { outline: none; }
+
+/* ── Block elements ──────────────────────────────────────────────── */
+.editor-canvas h1 {
+  font-size: 2em; font-weight: 700; line-height: 1.3;
+  margin: 0.5em 0 0.3em; color: var(--re-heading-color);
+}
+.editor-canvas h2 {
+  font-size: 1.5em; font-weight: 600; line-height: 1.4;
+  margin: 0.5em 0 0.3em; color: var(--re-heading-color);
+}
+.editor-canvas h3 {
+  font-size: 1.25em; font-weight: 600; line-height: 1.4;
+  margin: 0.5em 0 0.3em; color: var(--re-heading-color);
+}
+
+.editor-canvas ul { list-style: disc;    padding-left: 1.6em; margin: 0.4em 0; }
+.editor-canvas ol { list-style: decimal; padding-left: 1.6em; margin: 0.4em 0; }
+.editor-canvas li { margin: 0.2em 0; }
+
+.editor-canvas blockquote {
+  border-left: 3px solid var(--re-accent-color);
+  padding-left: 1em; margin: 0.5em 0;
+  color: var(--re-blockquote-color); font-style: italic;
+}
+
+.editor-canvas code {
+  font-family: var(--re-mono-font);
+  font-size: 0.875em;
+  background: var(--re-code-bg);
+  padding: 0.15em 0.4em; border-radius: 3px;
+  color: var(--re-code-color);
+}
+.editor-canvas pre {
+  font-family: var(--re-mono-font);
+  background: var(--re-code-bg);
+  padding: 1em; border-radius: 6px;
+  overflow-x: auto; margin: 0.5em 0;
+}
+
+/* ── Inline elements ─────────────────────────────────────────────── */
+.editor-canvas b, .editor-canvas strong { font-weight: 700; }
+.editor-canvas i, .editor-canvas em     { font-style: italic; }
+.editor-canvas u                         { text-decoration: underline; }
+.editor-canvas s, .editor-canvas strike, .editor-canvas del { text-decoration: line-through; }
+.editor-canvas a { color: var(--re-link-color); text-decoration: underline; }
+
+/* ── Placeholder ─────────────────────────────────────────────────── */
+.editor-canvas:empty::before {
+  content: attr(data-placeholder);
+  color: var(--re-placeholder-color);
+  pointer-events: none;
+  display: block;
+}
+
+/* ── Print ───────────────────────────────────────────────────────── */
+@media print {
+  .editor-canvas                { color: #000; font-size: 12pt; line-height: 1.6; }
+  .editor-canvas h1             { font-size: 22pt; color: #000; }
+  .editor-canvas h2             { font-size: 18pt; color: #000; }
+  .editor-canvas h3             { font-size: 14pt; color: #000; }
+  .editor-canvas code           { background: #f3f4f6; color: #1f2937; border: 1px solid #e5e7eb; }
+  .editor-canvas blockquote     { border-color: #6366f1; color: #374151; }
+}
