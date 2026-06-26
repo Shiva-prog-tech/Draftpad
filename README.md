@@ -89,4 +89,4 @@ src/
 
 ---
 
-Built by Shivaprasad | [GitHub](https://github.com/shivaprasad) | [LinkedIn](https://linkedin.com/in/shivaprasad)
+Built by Shivaprasad | [GitHub](https://github.com/Shiva-prog-tech) | [LinkedIn](https://www.linkedin.com/in/shivaprasad-jokare)
