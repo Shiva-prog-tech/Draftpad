@@ -3,37 +3,44 @@ import { auth } from '@/server/auth';
 
 export const maxDuration = 30;
 
-// Support both CE and Extra CE — set JUDGE0_HOST in env to override
-const HOST    = process.env.JUDGE0_HOST ?? 'judge0-ce.p.rapidapi.com';
-const BASE    = `https://${HOST}`;
+// Wandbox — free, public, no API key, no whitelist.
+// Self-hosting? Set WANDBOX_URL to your own instance.
+const WANDBOX = process.env.WANDBOX_URL ?? 'https://wandbox.org';
 
-const LANG_MAP: Record<string, number> = {
-  javascript: 63,
-  typescript: 74,
-  python:     71,
-  bash:       46,
+// Pick the best stable Wandbox compiler for each of our UI languages.
+// The /list.json feed is newest-first, so the first match is the latest version.
+const LANG_MATCH: Record<string, (c: { name: string; language: string }) => boolean> = {
+  javascript: c => c.language === 'JavaScript' && c.name.startsWith('nodejs-') && !c.name.includes('head'),
+  typescript: c => c.name.startsWith('typescript-'),
+  python:     c => c.name.startsWith('cpython-3.') && !c.name.includes('head'),
+  bash:       c => c.name === 'bash',
 };
 
-function rapidHeaders(apiKey: string) {
-  return {
-    'Content-Type':    'application/json',
-    'X-RapidAPI-Key':  apiKey,
-    'X-RapidAPI-Host': HOST,
-  };
+// Resolve language → compiler name once and cache (persists in a warm instance).
+let compilerCache: Record<string, string> | null = null;
+
+async function resolveCompiler(language: string): Promise<string | null> {
+  if (!compilerCache) {
+    const res = await fetch(`${WANDBOX}/api/list.json`);
+    if (!res.ok) return null;
+    const list: Array<{ name: string; language: string }> = await res.json();
+    compilerCache = {};
+    for (const [lang, match] of Object.entries(LANG_MATCH)) {
+      const hit = list.find(match);
+      if (hit) compilerCache[lang] = hit.name;
+    }
+  }
+  return compilerCache[language] ?? null;
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const apiKey = process.env.JUDGE0_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: 'JUDGE0_API_KEY not configured' }, { status: 503 });
-
   const body = await req.json().catch(() => ({}));
   const { language, code } = body;
 
-  const langId = LANG_MAP[language as string];
-  if (typeof language !== 'string' || !langId) {
+  if (typeof language !== 'string' || !(language in LANG_MATCH)) {
     return NextResponse.json({ error: `Unsupported language: ${language}` }, { status: 400 });
   }
   if (typeof code !== 'string' || !code.trim()) {
@@ -44,54 +51,34 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Step 1: submit (base64_encoded=false, wait=false → returns token immediately)
-    const submitRes = await fetch(`${BASE}/submissions?base64_encoded=false`, {
+    const compiler = await resolveCompiler(language);
+    if (!compiler) {
+      return NextResponse.json({ error: `No runtime available for ${language}` }, { status: 502 });
+    }
+
+    // Wandbox runs synchronously and returns when execution finishes — no polling.
+    const res = await fetch(`${WANDBOX}/api/compile.json`, {
       method:  'POST',
-      headers: rapidHeaders(apiKey),
-      body: JSON.stringify({ language_id: langId, source_code: code, stdin: '' }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, compiler, stdin: '' }),
     });
 
-    if (!submitRes.ok) {
-      const text = await submitRes.text().catch(() => '');
-      console.error(`[execute] submit ${submitRes.status}:`, text);
-      if (submitRes.status === 401 || submitRes.status === 403) {
-        return NextResponse.json({ error: 'Invalid JUDGE0_API_KEY — check your RapidAPI subscription.' }, { status: 503 });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`[execute] wandbox ${res.status}:`, text);
+      if (res.status === 429) {
+        return NextResponse.json({ error: 'Rate limited — wait a few seconds and try again.' }, { status: 429 });
       }
-      return NextResponse.json({ error: `Judge0 submit error (${submitRes.status}): ${text}` }, { status: 502 });
+      return NextResponse.json({ error: `Code execution service error (${res.status})` }, { status: 502 });
     }
 
-    const { token } = await submitRes.json();
-    if (!token) return NextResponse.json({ error: 'Judge0 did not return a token' }, { status: 502 });
+    const data = await res.json();
 
-    // Step 2: poll until status.id >= 3 (1 = In Queue, 2 = Processing, 3+ = done)
-    const FIELDS = 'stdout,stderr,compile_output,status';
-    const deadline = Date.now() + 20_000;
+    // Surface compile-time errors alongside runtime stderr.
+    const stderr   = [data.compiler_error, data.program_error].filter(Boolean).join('\n').trim();
+    const exitCode = data.signal ? 1 : (Number.parseInt(data.status, 10) || 0);
 
-    while (Date.now() < deadline) {
-      await new Promise(r => setTimeout(r, 1000));
-
-      const pollRes = await fetch(`${BASE}/submissions/${token}?base64_encoded=false&fields=${FIELDS}`, {
-        headers: rapidHeaders(apiKey),
-      });
-
-      if (!pollRes.ok) {
-        const text = await pollRes.text().catch(() => '');
-        console.error(`[execute] poll ${pollRes.status}:`, text);
-        return NextResponse.json({ error: `Judge0 poll error (${pollRes.status})` }, { status: 502 });
-      }
-
-      const data = await pollRes.json();
-      const statusId: number = data.status?.id ?? 0;
-
-      if (statusId <= 2) continue; // still queued / running
-
-      const exitCode = statusId === 3 ? 0 : 1;
-      const stderr   = [data.stderr, data.compile_output].filter(Boolean).join('\n').trim();
-
-      return NextResponse.json({ stdout: data.stdout ?? '', stderr, exitCode });
-    }
-
-    return NextResponse.json({ error: 'Execution timed out (>20 s)' }, { status: 504 });
+    return NextResponse.json({ stdout: data.program_output ?? '', stderr, exitCode });
 
   } catch (err: unknown) {
     const e = err as { message?: string };

@@ -83,7 +83,7 @@ export function CodeRunnerPanel({ content, onClose }: Props) {
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-[#6366F1]" />
           <span className="text-white text-sm font-semibold">Code Runner</span>
-          <span className="text-[#3F3F46] text-[10px] ml-0.5">via Piston</span>
+          <span className="text-[#3F3F46] text-[10px] ml-0.5">via Wandbox</span>
         </div>
         <button onClick={onClose} className="p-1.5 text-[#52525B] hover:text-white transition-colors rounded-lg hover:bg-[#1F1F23]">
           <X className="w-4 h-4" />
