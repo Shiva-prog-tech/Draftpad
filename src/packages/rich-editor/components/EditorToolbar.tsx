@@ -82,8 +82,19 @@ function ColorPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [pos,  setPos]  = useState({ top: 0, left: 0 });
-  const popRef = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef   = useRef<HTMLDivElement>(null);
+  const btnRef   = useRef<HTMLButtonElement>(null);
+  const savedSel = useRef<Range | null>(null);
+
+  const saveEditorSel = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) savedSel.current = sel.getRangeAt(0).cloneRange();
+  };
+  const restoreEditorSel = () => {
+    if (!savedSel.current) return;
+    const sel = window.getSelection();
+    if (sel) { sel.removeAllRanges(); sel.addRange(savedSel.current.cloneRange()); }
+  };
 
   // Close when clicking outside both the button and the popover
   useEffect(() => {
@@ -123,7 +134,7 @@ function ColorPicker({
           <button
             key={c}
             onMouseDown={e => e.preventDefault()}
-            onClick={() => { onChange(c); setOpen(false); }}
+            onClick={() => { restoreEditorSel(); onChange(c); setOpen(false); }}
             className="w-4 h-4 rounded-sm border border-[#2a2a30] hover:scale-110 transition-transform flex-shrink-0"
             style={{
               background: c === 'transparent'
@@ -152,6 +163,7 @@ function ColorPicker({
       <button
         ref={btnRef}
         onMouseDown={e => {
+          saveEditorSel(); // capture selection before anything can clear it
           e.preventDefault(); // keep editor focus + selection intact
           const rect = e.currentTarget.getBoundingClientRect();
           setPos({ top: rect.bottom, left: rect.left });

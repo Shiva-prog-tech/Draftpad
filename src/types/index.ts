@@ -1,6 +1,7 @@
 export type UserRole = 'owner' | 'editor' | 'viewer';
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'conflict' | 'error';
 export type DocStatus = 'active' | 'archived' | 'deleted';
+export type WorkflowStatus = 'draft' | 'review' | 'approved';
 
 export interface User {
   _id: string;
@@ -39,6 +40,7 @@ export interface Document {
   yjsState?: string; // base64 encoded Yjs binary state
   collaborators: Collaborator[];
   status: DocStatus;
+  workflowStatus: WorkflowStatus;
   wordCount: number;
   createdBy: string;
   createdAt: Date;

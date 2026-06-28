@@ -66,6 +66,16 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
+/* Editor text — hard override so contenteditable always renders white */
+.editor-canvas {
+  color: #F4F4F5;
+}
+.editor-canvas h1,
+.editor-canvas h2,
+.editor-canvas h3 {
+  color: #F4F4F5;
+}
+
 /* Card hover */
 .doc-card { transition: border-color 0.15s ease-out, background 0.15s ease-out; }
 .doc-card:hover { border-color: #2a2a30; background: #16161A; }

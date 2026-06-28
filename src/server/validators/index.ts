@@ -12,10 +12,11 @@ export const CreateDocumentSchema = z.object({
 });
 
 export const UpdateDocumentSchema = z.object({
-  title: z.string().min(1).max(500).optional(),
-  content: z.string().max(2_000_000).optional(), // 2MB max content
-  yjsState: z.string().max(1_024_000).optional(), // 1MB max Yjs state
-  wordCount: z.number().int().nonnegative().optional(),
+  title:          z.string().min(1).max(500).optional(),
+  content:        z.string().max(2_000_000).optional(),
+  yjsState:       z.string().max(1_024_000).optional(),
+  wordCount:      z.number().int().nonnegative().optional(),
+  workflowStatus: z.enum(['draft', 'review', 'approved']).optional(),
 });
 
 export const InviteCollaboratorSchema = z.object({
@@ -37,7 +38,21 @@ export const CreateVersionSchema = z.object({
 export const AIRequestSchema = z.object({
   prompt: z.string().min(1).max(10_000),
   context: z.string().max(50_000).optional(),
-  action: z.enum(['improve', 'summarize', 'grammar', 'shorten', 'custom']),
+  action: z.enum(['improve', 'summarize', 'grammar', 'shorten', 'custom', 'formal', 'continue', 'review']),
+});
+
+export const CreateCommentSchema = z.object({
+  text: z.string().min(1).max(5_000),
+  quote: z.string().max(2_000).default(''),
+});
+
+export const ReplyCommentSchema = z.object({
+  commentId: z.string().min(1),
+  text: z.string().min(1).max(5_000),
+});
+
+export const ResolveCommentSchema = z.object({
+  commentId: z.string().min(1),
 });
 
 export const RegisterSchema = z.object({

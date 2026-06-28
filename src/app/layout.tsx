@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import './globals.css';
 import '../packages/rich-editor/styles.css';
+import './globals.css';
 import { SessionProvider } from './providers';
 
 export const metadata: Metadata = {

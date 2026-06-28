@@ -21,16 +21,16 @@
   --re-font-size:          16px;
   --re-line-height:        1.8;
 
-  --re-text-color:         #111827;
-  --re-heading-color:      #111827;
-  --re-placeholder-color:  #9ca3af;
-  --re-link-color:         #6366f1;
+  --re-text-color:         #F4F4F5;
+  --re-heading-color:      #F4F4F5;
+  --re-placeholder-color:  #52525B;
+  --re-link-color:         #818CF8;
 
   --re-accent-color:       #6366f1;
-  --re-blockquote-color:   #6b7280;
+  --re-blockquote-color:   #A1A1AA;
 
-  --re-code-bg:            #f3f4f6;
-  --re-code-color:         #4f46e5;
+  --re-code-bg:            #1F1F23;
+  --re-code-color:         #A5B4FC;
 }
 
 /* ── Base ────────────────────────────────────────────────────────── */

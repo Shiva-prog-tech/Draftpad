@@ -4,7 +4,7 @@ import mongoose, { Schema, model, models } from 'mongoose';
 const UserSchema = new Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true },
-  password: { type: String, required: true },
+  password: { type: String },
   avatar: { type: String },
   color: { type: String, default: () => {
     const colors = ['#6366F1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6'];
@@ -39,6 +39,7 @@ const DocumentSchema = new Schema({
   yjsState: { type: String }, // base64 Yjs binary state
   collaborators: [CollaboratorSchema],
   status: { type: String, enum: ['active', 'archived', 'deleted'], default: 'active' },
+  workflowStatus: { type: String, enum: ['draft', 'review', 'approved'], default: 'draft' },
   wordCount: { type: Number, default: 0 },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true });
@@ -58,7 +59,28 @@ const InviteTokenSchema = new Schema({
   acceptedAt: { type: Date },
 }, { timestamps: true });
 
-export const UserModel = models.User || model('User', UserSchema);
-export const DocumentModel = models.Document || model('Document', DocumentSchema);
+// Comment Model
+const ReplySchema = new Schema({
+  userId:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userName:  { type: String, required: true },
+  userColor: { type: String, required: true },
+  text:      { type: String, required: true },
+}, { timestamps: true });
+
+const CommentSchema = new Schema({
+  docId:      { type: Schema.Types.ObjectId, ref: 'Document', required: true, index: true },
+  userId:     { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userName:   { type: String, required: true },
+  userColor:  { type: String, required: true },
+  text:       { type: String, required: true },
+  quote:      { type: String, default: '' },
+  resolved:   { type: Boolean, default: false },
+  resolvedAt: { type: Date },
+  replies:    [ReplySchema],
+}, { timestamps: true });
+
+export const UserModel            = models.User            || model('User',            UserSchema);
+export const DocumentModel        = models.Document        || model('Document',        DocumentSchema);
 export const DocumentVersionModel = models.DocumentVersion || model('DocumentVersion', DocumentVersionSchema);
-export const InviteTokenModel = models.InviteToken || model('InviteToken', InviteTokenSchema);
+export const InviteTokenModel     = models.InviteToken     || model('InviteToken',     InviteTokenSchema);
+export const CommentModel         = models.Comment         || model('Comment',         CommentSchema);

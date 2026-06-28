@@ -70,11 +70,16 @@ export interface RichEditorProps {
  * ```
  */
 export interface RichEditorHandle {
-  /**
-   * Inserts plain text at the current cursor position and triggers `onChange`.
-   * Use this to inject AI-generated text without managing selection yourself.
-   */
+  /** Inserts plain text at the current cursor position. */
   insertText: (text: string) => void;
+  /** Restores saved selection range and replaces it with the given text. */
+  replaceSelection: (text: string) => void;
+  /** Inserts raw HTML at the current cursor position. */
+  insertHTML: (html: string) => void;
+  /** Deletes n characters backwards from the cursor (for slash command cleanup). */
+  deleteCharsBack: (n: number) => void;
+  /** Applies a block-level format command (h1, h2, h3, bullet, ordered, quote, p). */
+  executeBlockFormat: (cmd: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -90,8 +95,9 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
     },
     ref
   ) {
-    const editorRef      = useRef<HTMLDivElement>(null);
-    const isHighlighting = useRef(false); // suppresses onChange during find highlights
+    const editorRef          = useRef<HTMLDivElement>(null);
+    const isHighlighting     = useRef(false);
+    const savedSelectionRange = useRef<Range | null>(null);
 
     const [showFind,    setShowFind]    = useState(false);
     const [showLink,    setShowLink]    = useState(false);
@@ -123,13 +129,52 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
         },
       });
 
-    // Expose insertText for parent (AI panel, etc.)
+    // Expose imperative API for parent (AI panel, slash commands, etc.)
     useImperativeHandle(ref, () => ({
       insertText: (text: string) => {
         const editor = editorRef.current;
         if (!editor) return;
         editor.focus();
         document.execCommand('insertText', false, text);
+        handleInput();
+      },
+      replaceSelection: (text: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        const range = savedSelectionRange.current;
+        if (range) {
+          const sel = window.getSelection();
+          if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+        }
+        document.execCommand('insertText', false, text);
+        handleInput();
+        savedSelectionRange.current = null;
+      },
+      insertHTML: (html: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        document.execCommand('insertHTML', false, html);
+        handleInput();
+      },
+      deleteCharsBack: (n: number) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        for (let i = 0; i < n; i++) document.execCommand('delete');
+        handleInput();
+      },
+      executeBlockFormat: (cmd: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        const map: Record<string, string> = {
+          h1: 'h1', h2: 'h2', h3: 'h3', quote: 'blockquote', p: 'p',
+        };
+        if (map[cmd]) document.execCommand('formatBlock', false, map[cmd]);
+        else if (cmd === 'bullet') document.execCommand('insertUnorderedList');
+        else if (cmd === 'ordered') document.execCommand('insertOrderedList');
         handleInput();
       },
     }), [handleInput]);
@@ -172,7 +217,14 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
               suppressContentEditableWarning
               onInput={handleInput}
               onBlur={handleEditorBlur}
-              onSelect={() => onTextSelect?.(window.getSelection()?.toString() || '')}
+              onSelect={() => {
+              const sel = window.getSelection();
+              const text = sel?.toString() || '';
+              if (text && editorRef.current?.contains(sel?.anchorNode ?? null)) {
+                savedSelectionRange.current = sel!.getRangeAt(0).cloneRange();
+              }
+              onTextSelect?.(text);
+            }}
               data-placeholder={readOnly ? 'This document is read-only.' : placeholder}
               className="w-full min-h-full bg-transparent focus:outline-none editor-canvas"
               style={{ minHeight: 'calc(100vh - 200px)' }}

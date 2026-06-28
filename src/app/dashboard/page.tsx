@@ -1,14 +1,22 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import {
   FileText, Plus, LogOut, Search, Wifi, WifiOff,
-  MoreHorizontal, Trash2, Users, Clock, Loader2, FileEdit
+  MoreHorizontal, Trash2, Users, Loader2, FileEdit, LayoutTemplate, X,
 } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/useDocument';
+import { TEMPLATES, type DocTemplate } from '@/lib/templates';
+
+type WorkflowStatus = 'draft' | 'review' | 'approved';
+
+const WORKFLOW_BADGE: Record<WorkflowStatus, { label: string; color: string }> = {
+  draft:    { label: 'Draft',     color: '#52525B' },
+  review:   { label: 'In Review', color: '#F59E0B' },
+  approved: { label: 'Approved',  color: '#10B981' },
+};
 
 interface DocPreview {
   _id: string;
@@ -18,6 +26,15 @@ interface DocPreview {
   wordCount: number;
   updatedAt: string;
   createdBy: string;
+  workflowStatus?: WorkflowStatus;
+}
+
+interface SearchResult {
+  _id: string;
+  title: string;
+  snippet: string;
+  updatedAt: string;
+  workflowStatus?: WorkflowStatus;
 }
 
 export default function DashboardPage() {
@@ -29,8 +46,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
-  const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [searchResults,  setSearchResults]  = useState<SearchResult[]>([]);
+  const [searchLoading,  setSearchLoading]  = useState(false);
+  const [menuOpen, setMenuOpen]           = useState<string | null>(null);
+  const [deleting, setDeleting]           = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchDocs = useCallback(async () => {
     try {
@@ -40,6 +61,20 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  // Server-side full-text search — debounced 400 ms
+  useEffect(() => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    if (search.length < 2) { setSearchResults([]); setSearchLoading(false); return; }
+    setSearchLoading(true);
+    searchDebounce.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(search)}`);
+        if (res.ok) { const { results } = await res.json(); setSearchResults(results); }
+      } finally { setSearchLoading(false); }
+    }, 400);
+    return () => { if (searchDebounce.current) clearTimeout(searchDebounce.current); };
+  }, [search]);
 
   const createDoc = async () => {
     setCreating(true);
@@ -56,6 +91,22 @@ export default function DashboardPage() {
     } catch { setCreating(false); }
   };
 
+  const createFromTemplate = async (template: DocTemplate) => {
+    setShowTemplates(false);
+    setCreating(true);
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: template.title }),
+      });
+      if (res.ok) {
+        const doc = await res.json();
+        router.push(`/docs/${doc._id}?template=${template.id}`);
+      }
+    } catch { setCreating(false); }
+  };
+
   const deleteDoc = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setDeleting(id);
@@ -67,9 +118,46 @@ export default function DashboardPage() {
 
   const myDocs = docs.filter(d => d.createdBy === session?.user?.id);
   const sharedDocs = docs.filter(d => d.createdBy !== session?.user?.id);
-  const filteredDocs = docs.filter(d =>
-    d.title.toLowerCase().includes(search.toLowerCase()) ||
-    d.content.toLowerCase().includes(search.toLowerCase())
+
+  // Highlight query match inside a text string
+  const highlight = (text: string, q: string) => {
+    if (!q || q.length < 2) return <>{text}</>;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return <>{text}</>;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="bg-[#6366F1]/30 text-[#A5B4FC] rounded-sm not-italic">{text.slice(idx, idx + q.length)}</mark>
+        {text.slice(idx + q.length)}
+      </>
+    );
+  };
+
+  const SearchResultCard = ({ result }: { result: SearchResult }) => (
+    <div
+      onClick={() => router.push(`/docs/${result._id}`)}
+      className="bg-[#111113] border border-[#1F1F23] hover:border-[#6366F1]/40 rounded-xl p-4 cursor-pointer transition-all group"
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <FileText className="w-3.5 h-3.5 text-[#52525B] flex-shrink-0" />
+        <span className="text-white text-sm font-medium truncate group-hover:text-[#A5B4FC] transition-colors">
+          {highlight(result.title, search)}
+        </span>
+        {result.workflowStatus && result.workflowStatus !== 'draft' && (
+          <span className="text-[10px] font-medium flex-shrink-0" style={{ color: WORKFLOW_BADGE[result.workflowStatus].color }}>
+            {WORKFLOW_BADGE[result.workflowStatus].label}
+          </span>
+        )}
+      </div>
+      {result.snippet && (
+        <p className="text-[#52525B] text-xs leading-relaxed line-clamp-2 pl-5">
+          {highlight(result.snippet, search)}
+        </p>
+      )}
+      <p className="text-[#3F3F46] text-[10px] mt-1.5 pl-5">
+        {formatDistanceToNow(new Date(result.updatedAt), { addSuffix: true })}
+      </p>
+    </div>
   );
 
   const DocCard = ({ doc }: { doc: DocPreview }) => {
@@ -113,6 +201,15 @@ export default function DashboardPage() {
             )}
           </div>
           <div className="flex items-center gap-3 text-[10px] text-[#52525B]">
+            {doc.workflowStatus && doc.workflowStatus !== 'draft' && (
+              <span
+                className="flex items-center gap-1 font-medium"
+                style={{ color: WORKFLOW_BADGE[doc.workflowStatus].color }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: WORKFLOW_BADGE[doc.workflowStatus].color }} />
+                {WORKFLOW_BADGE[doc.workflowStatus].label}
+              </span>
+            )}
             <span>{doc.wordCount.toLocaleString()} words</span>
             <span>{formatDistanceToNow(new Date(doc.updatedAt), { addSuffix: true })}</span>
           </div>
@@ -229,11 +326,18 @@ export default function DashboardPage() {
                 {docs.length} document{docs.length !== 1 ? 's' : ''} total
               </p>
             </div>
-            <button onClick={createDoc} disabled={creating}
-              className="flex items-center gap-2 bg-[#6366F1] hover:bg-[#5254CC] disabled:opacity-60 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors self-start sm:self-auto">
-              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              New document
-            </button>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button onClick={() => setShowTemplates(true)} disabled={creating}
+                className="flex items-center gap-2 bg-[#111113] hover:bg-[#18181B] border border-[#1F1F23] hover:border-[#2a2a30] disabled:opacity-60 text-[#A1A1AA] hover:text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors">
+                <LayoutTemplate className="w-4 h-4" />
+                Templates
+              </button>
+              <button onClick={createDoc} disabled={creating}
+                className="flex items-center gap-2 bg-[#6366F1] hover:bg-[#5254CC] disabled:opacity-60 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors">
+                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                New document
+              </button>
+            </div>
           </div>
 
           {/* Search */}
@@ -267,7 +371,32 @@ export default function DashboardPage() {
               </button>
             </div>
           ) : search ? (
-            <Section title={`Results for "${search}"`} docs={filteredDocs} icon={Search} />
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Search className="w-4 h-4 text-[#52525B]" />
+                <h2 className="text-[#71717A] text-xs font-medium uppercase tracking-widest">
+                  Results for &ldquo;{search}&rdquo;
+                </h2>
+                {!searchLoading && (
+                  <span className="text-[#3F3F46] text-xs">{searchResults.length}</span>
+                )}
+              </div>
+              {searchLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-5 h-5 animate-spin text-[#6366F1]" />
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                  <Search className="w-7 h-7 text-[#2a2a2e]" />
+                  <p className="text-[#52525B] text-sm">No documents matched &ldquo;{search}&rdquo;</p>
+                  <p className="text-[#3F3F46] text-xs">Try different keywords or check the title and body of your docs.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {searchResults.map(r => <SearchResultCard key={r._id} result={r} />)}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <Section title="My documents" docs={myDocs} icon={FileText} />
@@ -276,6 +405,48 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
+
+      {/* Template picker modal */}
+      {showTemplates && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowTemplates(false)}>
+          <div className="bg-[#111113] border border-[#1F1F23] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#1F1F23] flex-shrink-0">
+              <div>
+                <h2 className="text-white font-semibold">Start from a template</h2>
+                <p className="text-[#52525B] text-xs mt-0.5">Pick a template and start writing in seconds</p>
+              </div>
+              <button onClick={() => setShowTemplates(false)} className="text-[#52525B] hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-6">
+              {Array.from(new Set(TEMPLATES.map(t => t.category))).map(cat => (
+                <div key={cat} className="mb-6">
+                  <h3 className="text-[#52525B] text-xs font-medium uppercase tracking-widest mb-3">{cat}</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {TEMPLATES.filter(t => t.category === cat).map(template => (
+                      <button key={template.id}
+                        onClick={() => createFromTemplate(template)}
+                        className="flex items-start gap-3 bg-[#0A0A0B] hover:bg-[#16161A] border border-[#1F1F23] hover:border-[#2a2a30] rounded-xl p-4 text-left transition-all group">
+                        <span className="text-2xl flex-shrink-0 mt-0.5">{template.icon}</span>
+                        <div>
+                          <div className="text-white text-sm font-medium group-hover:text-[#A5B4FC] transition-colors">
+                            {template.title}
+                          </div>
+                          <div className="text-[#52525B] text-xs mt-0.5">{template.description}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -33,15 +33,35 @@ export function ShareModal({ docId, collaborators, onClose, onUpdate, currentUse
   const [success, setSuccess]       = useState('');
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [cancellingToken, setCancellingToken] = useState<string | null>(null);
+  // Live collaborators — initialized from prop, kept fresh by polling
+  const [liveCollabs, setLiveCollabs] = useState<Collaborator[]>(collaborators);
 
-  const isOwner = collaborators.find(c => c.userId === currentUserId)?.role === 'owner';
+  const isOwner = liveCollabs.find(c => c.userId === currentUserId)?.role === 'owner';
 
-  // Fetch pending invites whenever the modal opens (owner only)
+  // Poll collaborators + pending invites every 5 s while modal is open
   useEffect(() => {
-    if (!isOwner) return;
-    fetch(`/api/documents/${docId}/invites`)
-      .then(r => r.ok ? r.json() : { invites: [] })
-      .then(d => setPendingInvites(d.invites ?? []));
+    const refresh = async () => {
+      const [r1, r2] = await Promise.all([
+        fetch(`/api/documents/${docId}`),
+        isOwner ? fetch(`/api/documents/${docId}/invites`) : Promise.resolve(null),
+      ]);
+      if (r1.ok) {
+        const d = await r1.json();
+        if (d.collaborators) {
+          setLiveCollabs(d.collaborators);
+          onUpdate(); // keep parent collabList in sync
+        }
+      }
+      if (r2 && r2.ok) {
+        const d = await r2.json();
+        setPendingInvites(d.invites ?? []);
+      }
+    };
+
+    refresh(); // immediate fetch on open
+    const id = setInterval(refresh, 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId, isOwner]);
 
   const invite = async () => {
@@ -61,7 +81,6 @@ export function ShareModal({ docId, collaborators, onClose, onUpdate, currentUse
           ? `Invite created for ${email} but email failed — check SMTP settings`
           : `Invite email sent to ${email}`);
         setEmail('');
-        // Refresh pending invites list
         const r2 = await fetch(`/api/documents/${docId}/invites`);
         if (r2.ok) { const d = await r2.json(); setPendingInvites(d.invites ?? []); }
       }
@@ -102,7 +121,7 @@ export function ShareModal({ docId, collaborators, onClose, onUpdate, currentUse
         <div className="flex items-center justify-between p-5 border-b border-[#1F1F23]">
           <div>
             <h2 className="text-white font-semibold">Share document</h2>
-            <p className="text-[#52525B] text-xs mt-0.5">{collaborators.length} collaborator{collaborators.length !== 1 ? 's' : ''}</p>
+            <p className="text-[#52525B] text-xs mt-0.5">{liveCollabs.length} collaborator{liveCollabs.length !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={onClose} className="text-[#52525B] hover:text-white transition-colors p-1">
             <X className="w-5 h-5" />
@@ -151,7 +170,7 @@ export function ShareModal({ docId, collaborators, onClose, onUpdate, currentUse
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[#A1A1AA] text-sm truncate">{inv.email}</p>
-                      <p className="text-[#3F3F46] text-xs">Invite pending · hasn't accepted yet</p>
+                      <p className="text-[#3F3F46] text-xs">Invite pending · hasn&apos;t accepted yet</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded border ${cfg.color}`}>
@@ -177,7 +196,7 @@ export function ShareModal({ docId, collaborators, onClose, onUpdate, currentUse
 
         {/* Active collaborators */}
         <div className="p-5 space-y-3 max-h-64 overflow-y-auto">
-          {collaborators.map(c => {
+          {liveCollabs.map(c => {
             const cfg = roleConfig[c.role];
             const Icon = cfg.icon;
             return (
