@@ -24,6 +24,16 @@ Rules:
 - For task lists, write checkbox items as plain text starting with "[ ] ".
 - Do NOT output <html>, <head>, <body>, markdown, code fences, or any commentary.
 Return ONLY the HTML.`,
+  slides:   `You are a presentation designer. Given a topic, produce a clear, compelling slide deck.
+Return ONLY valid minified JSON (no markdown, no code fences, no commentary) matching exactly:
+{"title": string, "subtitle": string, "slides": [{"title": string, "bullets": string[], "notes": string}]}
+Rules:
+- 8 to 12 slides covering a logical narrative (problem → solution → details → impact → close).
+- Each slide: a short punchy title and 3–5 concise bullet points (max ~12 words each).
+- "notes" = 1–2 sentences of speaker notes per slide.
+- Do not include a separate title slide in the array — the "title"/"subtitle" fields cover that.
+Return ONLY the JSON object.`,
+  slide:    `You generate ONE presentation slide. Return ONLY valid minified JSON (no markdown, no code fences, no commentary): {"title": string, "bullets": string[], "notes": string}. Use 3–5 concise bullets (max ~12 words each) and 1–2 sentences of speaker notes. Return ONLY the JSON object.`,
   review:   `You are a professional document reviewer. Analyze the document and return a review in EXACTLY this format:
 
 SCORE: [number 1-10]
@@ -75,8 +85,8 @@ export async function POST(req: NextRequest) {
       system:      systemPrompts[action] ?? systemPrompts.custom,
       prompt:      userMessage,
       // Keep total tokens per request well under the 6 000 TPM limit
-      maxTokens:   action === 'template' ? 2000 : action === 'review' ? 1200 : 900,
-      temperature: action === 'template' ? 0.6  : action === 'review' ? 0.4 : 0.7,
+      maxTokens:   action === 'slides' ? 2500 : action === 'template' ? 2000 : action === 'review' ? 1200 : action === 'slide' ? 500 : 900,
+      temperature: action === 'slides' ? 0.5 : action === 'template' ? 0.6 : action === 'review' ? 0.4 : 0.7,
       abortSignal: controller.signal,
     });
 

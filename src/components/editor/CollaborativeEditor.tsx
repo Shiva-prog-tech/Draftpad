@@ -49,6 +49,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
   const { data: session } = useSession();
   const router            = useRouter();
   const richEditorRef     = useRef<RichEditorHandle>(null);
+  const statusBtnRef      = useRef<HTMLButtonElement>(null);
 
   const userId   = session?.user?.id || '';
   const myCollab = doc.collaborators.find(c => c.userId === userId);
@@ -355,7 +356,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
           <ArrowLeft className="w-4 h-4" />
         </Link>
 
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0 max-sm:w-28 max-sm:flex-none">
           <input
             value={title}
             onChange={handleTitleChange}
@@ -366,8 +367,8 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
           {titleSaving && <Loader2 className="w-3 h-3 animate-spin text-[#52525B] flex-shrink-0" />}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        {/* Actions — horizontally scrollable on mobile so every tool is reachable */}
+        <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setShowTOC(v => !v)}
             title="Table of Contents"
@@ -408,6 +409,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
            {/* Workflow status badge */}
           <div className="relative flex-shrink-0">
             <button
+              ref={statusBtnRef}
               onClick={() => !isViewer && setStatusOpen(o => !o)}
               disabled={isViewer || statusSaving}
               style={{
@@ -425,7 +427,13 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
             </button>
 
             {statusOpen && (
-              <div className="absolute top-full left-0 mt-1 w-36 bg-[#111113] border border-[#1F1F23] rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div
+                style={{
+                  position: 'fixed',
+                  top: (statusBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                  left: statusBtnRef.current?.getBoundingClientRect().left ?? 0,
+                }}
+                className="w-36 bg-[#111113] border border-[#1F1F23] rounded-xl shadow-2xl z-50 overflow-hidden">
                 {(Object.keys(WORKFLOW_CONFIG) as WorkflowStatus[]).map(s => (
                   <button
                     key={s}
@@ -581,6 +589,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
         <AIPanel
           selectedText={selectedText}
           onInsert={text => richEditorRef.current?.insertText(text)}
+          onInsertHTML={html => richEditorRef.current?.insertHTML(html)}
           onClose={() => setShowAI(false)}
         />
       )}

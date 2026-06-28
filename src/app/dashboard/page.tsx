@@ -7,10 +7,13 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   FileText, Plus, LogOut, Search, Wifi, WifiOff,
   MoreHorizontal, Trash2, Users, FileEdit, LayoutTemplate, Files, FolderOpen,
-  Sparkles, Wand2,
+  Sparkles, Wand2, Star, Bookmark, Presentation,
 } from 'lucide-react';
+import { parseDeck } from '@/lib/deck';
 import { useOnlineStatus } from '@/hooks/useDocument';
 import { TEMPLATES, type DocTemplate } from '@/lib/templates';
+import { getCustomTemplates, saveCustomTemplate, removeCustomTemplate, type CustomTemplate } from '@/lib/custom-templates';
+import { coverImageUrl, hashSeed } from '@/lib/cover-image';
 import { Button, Card, Modal } from '@/components/ui';
 import { fadeUp, stagger } from '@/lib/motion';
 import { toast } from '@/lib/toast';
@@ -38,6 +41,17 @@ const AI_PROMPT_IDEAS = [
   'Sprint planning doc',
   'Case study',
 ];
+
+const CATEGORIES = ['All', 'Productivity', 'Engineering', 'Product', 'Marketing', 'Business'];
+
+// Per-category cover gradient for the premium gallery cards.
+const CATEGORY_GRAD: Record<string, string> = {
+  Productivity: 'from-[#6366F1]/30 via-[#4F46E5]/15 to-transparent',
+  Engineering:  'from-[#0EA5E9]/30 via-[#0369A1]/15 to-transparent',
+  Product:      'from-[#8B5CF6]/30 via-[#6D28D9]/15 to-transparent',
+  Marketing:    'from-[#EC4899]/30 via-[#BE185D]/15 to-transparent',
+  Business:     'from-[#10B981]/30 via-[#047857]/15 to-transparent',
+};
 
 interface DocPreview {
   _id: string;
@@ -88,10 +102,23 @@ export default function DashboardPage() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [templateTab, setTemplateTab] = useState<'gallery' | 'ai'>('gallery');
+  const [templateTab, setTemplateTab] = useState<'gallery' | 'ai' | 'mine' | 'slides'>('gallery');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [slidesPrompt, setSlidesPrompt] = useState('');
+  const [slidesGenerating, setSlidesGenerating] = useState(false);
+  const [gallerySearch, setGallerySearch] = useState('');
+  const [galleryCat, setGalleryCat] = useState<string>('All');
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [recentDecks, setRecentDecks] = useState<{ _id: string; title: string; slideCount: number; updatedAt: string }[]>([]);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load saved templates + decks whenever the Studio opens.
+  useEffect(() => {
+    if (!showTemplates) return;
+    setCustomTemplates(getCustomTemplates());
+    fetch('/api/decks').then(r => r.ok ? r.json() : { decks: [] }).then(d => setRecentDecks(d.decks ?? [])).catch(() => {});
+  }, [showTemplates]);
 
   const fetchDocs = useCallback(async () => {
     try {
@@ -179,6 +206,71 @@ export default function DashboardPage() {
     }
   };
 
+  const generateDeck = async () => {
+    const prompt = slidesPrompt.trim();
+    if (!prompt || slidesGenerating) return;
+    setSlidesGenerating(true);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'slides', prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error('Generation failed', data.error); setSlidesGenerating(false); return; }
+      const deck = parseDeck(String(data.result || ''));
+      if (!deck) { toast.error('Could not build the deck', 'Try rephrasing your topic.'); setSlidesGenerating(false); return; }
+      // Persist so it can be edited and reopened.
+      const saveRes = await fetch('/api/decks', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: deck.title, subtitle: deck.subtitle, slides: deck.slides }),
+      });
+      if (!saveRes.ok) { toast.error('Could not save the deck'); setSlidesGenerating(false); return; }
+      const saved = await saveRes.json();
+      setShowTemplates(false);
+      setSlidesPrompt('');
+      router.push(`/decks/${saved._id}`);
+    } catch {
+      toast.error('Generation failed', 'Please try again.');
+      setSlidesGenerating(false);
+    }
+  };
+
+  const createFromCustom = async (t: CustomTemplate) => {
+    setShowTemplates(false);
+    setCreating(true);
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: t.title }),
+      });
+      if (res.ok) {
+        const doc = await res.json();
+        sessionStorage.setItem(`ai-template-${doc._id}`, t.html);
+        router.push(`/docs/${doc._id}`);
+      } else { toast.error('Could not create document'); setCreating(false); }
+    } catch { toast.error('Could not create document'); setCreating(false); }
+  };
+
+  const saveDocAsTemplate = async (doc: DocPreview) => {
+    setMenuOpen(null);
+    try {
+      const res = await fetch(`/api/documents/${doc._id}`);
+      if (!res.ok) { toast.error('Could not save template'); return; }
+      const full = await res.json();
+      const html = String(full.content || '');
+      if (!html.trim()) { toast.error('Document is empty', 'Add content before saving it as a template.'); return; }
+      saveCustomTemplate({ title: doc.title || 'Untitled template', html });
+      setCustomTemplates(getCustomTemplates());
+      toast.success('Saved to My Templates');
+    } catch { toast.error('Could not save template'); }
+  };
+
+  const deleteCustomTemplate = (id: string) => {
+    removeCustomTemplate(id);
+    setCustomTemplates(getCustomTemplates());
+    toast.success('Template removed');
+  };
+
   const deleteDoc = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setDeleting(id);
@@ -205,6 +297,7 @@ export default function DashboardPage() {
         onToggleMenu={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === doc._id ? null : doc._id); }}
         onOpen={() => { setMenuOpen(null); router.push(`/docs/${doc._id}`); }}
         onDelete={(e) => deleteDoc(doc._id, e)}
+        onSaveTemplate={() => saveDocAsTemplate(doc)}
       />
     ));
 
@@ -355,9 +448,9 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Template picker modal */}
-      <Modal open={showTemplates} onClose={() => setShowTemplates(false)} title="New document"
-        description="Start from a template or generate one with AI" className="max-w-2xl">
+      {/* Template Studio */}
+      <Modal open={showTemplates} onClose={() => setShowTemplates(false)} title="Template Studio"
+        description="Start from a curated template, generate one with AI, or reuse your own" className="max-w-3xl">
         <div className="px-6 pt-4">
           <div className="inline-flex gap-1 rounded-lg border border-line bg-white/[0.03] p-1">
             <button onClick={() => setTemplateTab('gallery')}
@@ -368,30 +461,156 @@ export default function DashboardPage() {
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${templateTab === 'ai' ? 'bg-accent-grad-soft text-white' : 'text-txt-secondary hover:text-white'}`}>
               <Sparkles className="h-3.5 w-3.5" />Generate with AI
             </button>
+            <button onClick={() => setTemplateTab('slides')}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${templateTab === 'slides' ? 'bg-accent-grad-soft text-white' : 'text-txt-secondary hover:text-white'}`}>
+              <Presentation className="h-3.5 w-3.5" />AI Slides
+            </button>
+            <button onClick={() => setTemplateTab('mine')}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${templateTab === 'mine' ? 'bg-accent-grad-soft text-white' : 'text-txt-secondary hover:text-white'}`}>
+              <Bookmark className="h-3.5 w-3.5" />My Templates
+              {customTemplates.length > 0 && <span className="text-[10px] text-txt-muted">{customTemplates.length}</span>}
+            </button>
           </div>
         </div>
 
-        {templateTab === 'gallery' ? (
+        {templateTab === 'gallery' && (
           <div className="p-6 pt-4">
-            {Array.from(new Set(TEMPLATES.map(t => t.category))).map(cat => (
-              <div key={cat} className="mb-6 last:mb-0">
-                <h3 className="mb-3 text-xs font-medium uppercase tracking-widest text-txt-muted">{cat}</h3>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {TEMPLATES.filter(t => t.category === cat).map(template => (
-                    <button key={template.id} onClick={() => createFromTemplate(template)}
-                      className="group flex items-start gap-3 rounded-xl border border-line bg-white/[0.02] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-line-strong hover:bg-white/[0.04] hover:shadow-elev-2">
-                      <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent-grad-soft text-xl">{template.icon}</span>
-                      <div>
-                        <div className="text-sm font-medium text-white transition-colors group-hover:text-[#A5B4FC]">{template.title}</div>
-                        <div className="mt-0.5 text-xs text-txt-muted">{template.description}</div>
+            {/* Search + category filter */}
+            <div className="mb-4 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-muted" />
+                <input value={gallerySearch} onChange={e => setGallerySearch(e.target.value)} placeholder="Search templates…"
+                  className="w-full rounded-lg border border-line bg-white/[0.02] py-2 pl-9 pr-3 text-sm text-white placeholder-[#3F3F46] transition-all focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40" />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORIES.map(cat => (
+                  <button key={cat} onClick={() => setGalleryCat(cat)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${galleryCat === cat ? 'bg-accent-grad-soft text-white' : 'border border-line bg-white/[0.02] text-txt-secondary hover:text-white'}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(() => {
+              const q = gallerySearch.trim().toLowerCase();
+              const list = TEMPLATES.filter(t =>
+                (galleryCat === 'All' || t.category === galleryCat) &&
+                (!q || t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)),
+              );
+              return list.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                  <LayoutTemplate className="h-7 w-7 text-[#2a2a2e]" />
+                  <p className="text-sm text-txt-muted">No templates match your search.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {list.map(t => <TemplateCard key={t.id} template={t} onClick={() => createFromTemplate(t)} />)}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {templateTab === 'slides' && (
+          <div className="p-6 pt-4">
+            <div className="mb-3 flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-grad shadow-glow-accent-sm">
+                <Presentation className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">Generate a presentation</p>
+                <p className="text-xs text-txt-muted">AI builds a full slide deck you can present and export to PowerPoint.</p>
+              </div>
+            </div>
+
+            <textarea
+              value={slidesPrompt}
+              onChange={e => setSlidesPrompt(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) generateDeck(); }}
+              placeholder="e.g. A 10-slide investor pitch for an AI-powered code review startup"
+              rows={3}
+              disabled={slidesGenerating}
+              className="w-full resize-none rounded-xl border border-line bg-white/[0.02] px-3.5 py-3 text-sm text-white placeholder-[#3F3F46] transition-all focus:border-accent focus:shadow-glow-accent-sm focus:outline-none focus:ring-1 focus:ring-accent/40 disabled:opacity-60"
+            />
+
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {['Series A pitch deck', 'Product launch keynote', 'Quarterly business review', 'Onboarding training deck', 'Sales demo deck'].map(idea => (
+                <button key={idea} onClick={() => setSlidesPrompt(idea)} disabled={slidesGenerating}
+                  className="rounded-full border border-line bg-white/[0.02] px-2.5 py-1 text-[11px] text-txt-secondary transition-colors hover:border-line-strong hover:text-white disabled:opacity-50">
+                  {idea}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 flex items-center justify-between">
+              <p className="text-[11px] text-txt-muted">Opens an editable deck · present · export to .pptx</p>
+              <Button onClick={generateDeck} loading={slidesGenerating} disabled={!slidesPrompt.trim() || slidesGenerating}>
+                {!slidesGenerating && <Presentation className="h-4 w-4" />}
+                {slidesGenerating ? 'Building deck…' : 'Generate deck'}
+              </Button>
+            </div>
+
+            {recentDecks.length > 0 && (
+              <div className="mt-6 border-t border-line pt-4">
+                <h3 className="mb-3 text-xs font-medium uppercase tracking-widest text-txt-muted">Your decks</h3>
+                <div className="space-y-1.5">
+                  {recentDecks.map(d => (
+                    <button key={d._id} onClick={() => { setShowTemplates(false); router.push(`/decks/${d._id}`); }}
+                      className="group flex w-full items-center gap-3 rounded-lg border border-line bg-white/[0.02] p-2.5 text-left transition-all hover:border-line-strong hover:bg-white/[0.04]">
+                      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent-grad-soft">
+                        <Presentation className="h-4 w-4 text-accent" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-white transition-colors group-hover:text-[#A5B4FC]">{d.title}</div>
+                        <div className="text-[10px] text-txt-muted">{d.slideCount} slide{d.slideCount !== 1 ? 's' : ''} · {formatDistanceToNow(new Date(d.updatedAt), { addSuffix: true })}</div>
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        ) : (
+        )}
+
+        {templateTab === 'mine' && (
+          <div className="p-6 pt-4">
+            {customTemplates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-line bg-white/[0.02]">
+                  <Bookmark className="h-6 w-6 text-[#2a2a2e]" />
+                </div>
+                <p className="text-sm font-medium text-white">No saved templates yet</p>
+                <p className="max-w-xs text-xs leading-relaxed text-txt-muted">
+                  Open any document&apos;s <span className="text-txt-secondary">⋯</span> menu and choose
+                  <span className="text-txt-secondary"> Save as template</span> to reuse it here.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {customTemplates.map(t => (
+                  <div key={t.id} className="group relative overflow-hidden rounded-xl border border-line bg-white/[0.02] transition-all hover:-translate-y-1 hover:border-line-strong hover:shadow-elev-3">
+                    <button onClick={() => createFromCustom(t)} className="block w-full text-left">
+                      <div className="flex h-20 items-center justify-center bg-gradient-to-br from-[#6366F1]/25 via-[#4F46E5]/10 to-transparent">
+                        <Bookmark className="h-7 w-7 text-[#A5B4FC]" />
+                      </div>
+                      <div className="p-3">
+                        <div className="truncate text-sm font-medium text-white transition-colors group-hover:text-[#A5B4FC]">{t.title}</div>
+                        <div className="mt-0.5 text-[10px] text-txt-muted">Saved {formatDistanceToNow(new Date(t.createdAt), { addSuffix: true })}</div>
+                      </div>
+                    </button>
+                    <button onClick={() => deleteCustomTemplate(t.id)} title="Remove"
+                      className="absolute right-2 top-2 rounded-md bg-black/40 p-1 text-txt-muted opacity-0 backdrop-blur transition-all hover:text-red-400 group-hover:opacity-100">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {templateTab === 'ai' && (
           <div className="p-6 pt-4">
             <div className="mb-3 flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-grad shadow-glow-accent-sm">
@@ -447,9 +666,10 @@ interface DocCardProps {
   onToggleMenu: (e: React.MouseEvent) => void;
   onOpen: () => void;
   onDelete: (e: React.MouseEvent) => void;
+  onSaveTemplate: () => void;
 }
 
-function DocCard({ doc, isOwner, reduce, menuOpen, deleting, onToggleMenu, onOpen, onDelete }: DocCardProps) {
+function DocCard({ doc, isOwner, reduce, menuOpen, deleting, onToggleMenu, onOpen, onDelete, onSaveTemplate }: DocCardProps) {
   return (
     <Card variants={fadeUp} interactive glow onClick={onOpen} className="group p-5">
       <div className={`absolute left-0 top-4 bottom-4 w-0.5 rounded-r-full ${isOwner ? 'bg-gradient-to-b from-[#6366F1] to-[#8B5CF6]' : 'bg-[#52525B]'}`} />
@@ -506,6 +726,10 @@ function DocCard({ doc, isOwner, reduce, menuOpen, deleting, onToggleMenu, onOpe
               className="flex w-full items-center gap-2 px-3 py-2 text-xs text-txt-secondary transition-colors hover:bg-white/[0.06] hover:text-white">
               <FileEdit className="h-3.5 w-3.5" />Open
             </button>
+            <button onClick={(e) => { e.stopPropagation(); onSaveTemplate(); }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-xs text-txt-secondary transition-colors hover:bg-white/[0.06] hover:text-white">
+              <Bookmark className="h-3.5 w-3.5" />Save as template
+            </button>
             {isOwner && (
               <button onClick={onDelete} disabled={deleting}
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50">
@@ -556,6 +780,41 @@ function SectionShell({ title, count, icon: Icon, children }: { title: string; c
         {children}
       </motion.div>
     </div>
+  );
+}
+
+function TemplateCard({ template, onClick }: { template: DocTemplate; onClick: () => void }) {
+  const grad = CATEGORY_GRAD[template.category] ?? CATEGORY_GRAD.Productivity;
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const coverUrl = coverImageUrl(`${template.category} — ${template.title}`, hashSeed(template.id));
+
+  return (
+    <button onClick={onClick}
+      className="group flex flex-col overflow-hidden rounded-xl border border-line bg-white/[0.02] text-left transition-all hover:-translate-y-1 hover:border-line-strong hover:shadow-elev-3">
+      <div className={`relative flex h-20 items-center justify-center overflow-hidden bg-gradient-to-br ${grad}`}>
+        {/* AI cover image fades in over the gradient; gradient remains if it fails */}
+        <img
+          src={coverUrl}
+          alt=""
+          loading="lazy"
+          onLoad={() => setImgLoaded(true)}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+        />
+        {/* emoji in a glass chip — legible over any cover */}
+        <span className="relative z-10 flex h-11 w-11 items-center justify-center rounded-xl bg-black/30 text-2xl backdrop-blur-sm ring-1 ring-white/10">
+          {template.icon}
+        </span>
+        {template.popular && (
+          <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/40 px-1.5 py-0.5 text-[9px] font-medium text-amber-300 backdrop-blur">
+            <Star className="h-2.5 w-2.5 fill-amber-300" />Popular
+          </span>
+        )}
+      </div>
+      <div className="p-3">
+        <div className="truncate text-sm font-medium text-white transition-colors group-hover:text-[#A5B4FC]">{template.title}</div>
+        <div className="mt-0.5 line-clamp-1 text-xs text-txt-muted">{template.description}</div>
+      </div>
+    </button>
   );
 }
 

@@ -42,7 +42,7 @@ export function SidePanel({
           transition={{ type: 'spring', stiffness: 320, damping: 34 }}
           style={{ width }}
           className={cn(
-            'fixed top-0 bottom-0 z-30 flex flex-col bg-[#0E0E10]/95 shadow-elev-4 backdrop-blur-xl',
+            'fixed top-0 bottom-0 z-30 flex max-w-[100vw] flex-col bg-[#0E0E10]/95 shadow-elev-4 backdrop-blur-xl',
             side === 'right' ? 'right-0 border-l border-line' : 'left-0 border-r border-line',
             className,
           )}

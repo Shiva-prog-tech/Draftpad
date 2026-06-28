@@ -79,7 +79,25 @@ const CommentSchema = new Schema({
   replies:    [ReplySchema],
 }, { timestamps: true });
 
+// Deck (AI presentation) Model
+const DeckSlideSchema = new Schema({
+  id:      { type: String, required: true },
+  title:   { type: String, default: '' },
+  bullets: { type: [String], default: [] },
+  notes:   { type: String, default: '' },
+  image:   { type: String, default: '' }, // base64 data URI (optional)
+}, { _id: false });
+
+const DeckSchema = new Schema({
+  title:     { type: String, default: 'Untitled Deck', trim: true },
+  subtitle:  { type: String, default: '' },
+  slides:    { type: [DeckSlideSchema], default: [] },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  status:    { type: String, enum: ['active', 'deleted'], default: 'active' },
+}, { timestamps: true });
+
 export const UserModel            = models.User            || model('User',            UserSchema);
+export const DeckModel            = models.Deck            || model('Deck',            DeckSchema);
 export const DocumentModel        = models.Document        || model('Document',        DocumentSchema);
 export const DocumentVersionModel = models.DocumentVersion || model('DocumentVersion', DocumentVersionSchema);
 export const InviteTokenModel     = models.InviteToken     || model('InviteToken',     InviteTokenSchema);

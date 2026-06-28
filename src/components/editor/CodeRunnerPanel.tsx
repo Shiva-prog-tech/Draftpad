@@ -91,7 +91,7 @@ export function CodeRunnerPanel({ content, onClose }: Props) {
           animate={{ x: 0, opacity: 1 }}
           exit={reduce ? { opacity: 0 } : { x: 440, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-          className="fixed right-0 top-0 bottom-0 w-[440px] z-30 flex flex-col
+          className="fixed right-0 top-0 bottom-0 w-[440px] max-w-[100vw] z-30 flex flex-col
                      bg-[#0E0E10]/95 backdrop-blur-xl border-l border-white/[0.06]
                      shadow-[-20px_0_60px_-15px_rgba(0,0,0,0.7)]"
         >
