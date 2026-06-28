@@ -15,6 +15,15 @@ const systemPrompts: Record<string, string> = {
   formal:   'You are a professional business writing expert. Rewrite the text in a formal, polished, professional tone. Return only the rewritten text.',
   continue: 'You are a creative writing assistant. Continue writing naturally from where the text ends. Match the existing tone and voice. Return only the continuation.',
   custom:   "You are a helpful writing assistant. Follow the user's instructions precisely.",
+  template: `You are an expert document template generator for a rich-text editor used by software, product, and marketing teams.
+Given a short description, produce a complete, professional, ready-to-fill document template as clean semantic HTML.
+Rules:
+- Use ONLY these tags: <h1>, <h2>, <h3>, <p>, <ul>, <ol>, <li>, <blockquote>, <strong>, <em>, <code>.
+- Start with exactly one <h1> containing a clear document title.
+- Include realistic section headings, concise guidance/placeholder copy, and bullet or numbered lists.
+- For task lists, write checkbox items as plain text starting with "[ ] ".
+- Do NOT output <html>, <head>, <body>, markdown, code fences, or any commentary.
+Return ONLY the HTML.`,
   review:   `You are a professional document reviewer. Analyze the document and return a review in EXACTLY this format:
 
 SCORE: [number 1-10]
@@ -66,8 +75,8 @@ export async function POST(req: NextRequest) {
       system:      systemPrompts[action] ?? systemPrompts.custom,
       prompt:      userMessage,
       // Keep total tokens per request well under the 6 000 TPM limit
-      maxTokens:   action === 'review' ? 1200 : 900,
-      temperature: action === 'review' ? 0.4  : 0.7,
+      maxTokens:   action === 'template' ? 2000 : action === 'review' ? 1200 : 900,
+      temperature: action === 'template' ? 0.6  : action === 'review' ? 0.4 : 0.7,
       abortSignal: controller.signal,
     });
 

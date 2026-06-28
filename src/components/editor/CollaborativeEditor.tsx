@@ -166,6 +166,18 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
     setTimeout(() => { updateText(tpl.html); }, 300);
   }, [content, templateId, updateText]);
 
+  // ── AI-generated template pre-fill (HTML stashed in sessionStorage) ──
+  const aiTemplateApplied = useRef(false);
+  useEffect(() => {
+    if (aiTemplateApplied.current || content || typeof window === 'undefined') return;
+    const key  = `ai-template-${doc._id}`;
+    const html = sessionStorage.getItem(key);
+    if (!html) return;
+    aiTemplateApplied.current = true;
+    sessionStorage.removeItem(key);
+    setTimeout(() => { updateText(html); }, 300);
+  }, [content, doc._id, updateText]);
+
   // ── Title save ─────────────────────────────────────────────────
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
@@ -331,12 +343,12 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
 
   // ── Render ─────────────────────────────────────────────────────
   return (
-    <div className="h-screen flex flex-col bg-[#0A0A0B] overflow-hidden">
+    <div className="h-screen flex flex-col bg-transparent overflow-hidden">
       {!zenMode && <SyncBar status={syncStatus} pendingOps={pendingOps} />}
 
       {/* Top bar */}
       <div
-        className={`flex items-center gap-3 px-4 border-b border-[#1F1F23] flex-shrink-0 ${syncStatus === 'offline' ? 'mt-8' : 'mt-0.5'} ${zenMode ? 'hidden' : ''}`}
+        className={`flex items-center gap-3 px-4 border-b border-line bg-[#0E0E10]/80 backdrop-blur-xl flex-shrink-0 ${syncStatus === 'offline' ? 'mt-8' : 'mt-0.5'} ${zenMode ? 'hidden' : ''}`}
         style={{ height: '48px' }}
       >
         <Link href="/dashboard" className="text-[#52525B] hover:text-white transition-colors flex-shrink-0">

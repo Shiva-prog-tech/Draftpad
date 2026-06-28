@@ -56,58 +56,60 @@ export function TableOfContents({ content, onClose }: Props) {
   };
 
   return (
-    <div className="w-52 flex-shrink-0 bg-[#111113] border-r border-[#1F1F23] flex flex-col overflow-hidden">
+    <div className="flex w-52 flex-shrink-0 flex-col overflow-hidden border-r border-line bg-[#0E0E10]/60 backdrop-blur-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#1F1F23] flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-line px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-3.5 h-3.5 text-[#6366F1]" />
-          <span className="text-white text-xs font-semibold">Contents</span>
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent-grad shadow-glow-accent-sm">
+            <BookOpen className="h-3 w-3 text-white" />
+          </div>
+          <span className="text-xs font-semibold text-white">Contents</span>
         </div>
         <button
           onClick={onClose}
-          className="p-0.5 text-[#52525B] hover:text-white transition-colors rounded"
+          className="rounded p-1 text-txt-muted transition-all duration-200 hover:rotate-90 hover:text-white"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto py-2">
+      <div className="premium-scroll flex-1 overflow-y-auto py-2">
         {headings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-2">
-            <BookOpen className="w-5 h-5 text-[#2a2a2e]" />
-            <p className="text-[#3F3F46] text-[10px] leading-relaxed">
-              Add H1, H2, or H3 headings and they'll appear here.
+          <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+            <BookOpen className="h-5 w-5 text-[#2a2a2e]" />
+            <p className="text-[10px] leading-relaxed text-[#3F3F46]">
+              Add H1, H2, or H3 headings and they&apos;ll appear here.
             </p>
           </div>
         ) : (
           <div className="space-y-px">
-            {headings.map((h, i) => (
-              <button
-                key={i}
-                onClick={() => goTo(h.index)}
-                style={{ paddingLeft: `${8 + (h.level - 1) * 12}px` }}
-                className={`w-full text-left py-1.5 pr-2 flex items-center gap-1.5 transition-all ${
-                  activeIdx === h.index
-                    ? 'text-[#A5B4FC] bg-[#6366F1]/10'
-                    : 'text-[#52525B] hover:text-[#A1A1AA] hover:bg-[#18181B]'
-                }`}
-              >
-                {activeIdx === h.index
-                  ? <ChevronRight className="w-2.5 h-2.5 flex-shrink-0 text-[#6366F1]" />
-                  : <span className="w-2.5 flex-shrink-0" />
-                }
-                <span
-                  className={`leading-snug truncate ${
-                    h.level === 1 ? 'font-semibold text-[11px]' :
-                    h.level === 2 ? 'font-medium text-[11px]' :
-                    'text-[10px]'
+            {headings.map((h, i) => {
+              const active = activeIdx === h.index;
+              return (
+                <button
+                  key={i}
+                  onClick={() => goTo(h.index)}
+                  style={{ paddingLeft: `${8 + (h.level - 1) * 12}px` }}
+                  className={`flex w-full items-center gap-1.5 py-1.5 pr-2 text-left transition-all ${
+                    active ? 'bg-accent-grad-soft text-[#A5B4FC]' : 'text-txt-muted hover:bg-white/[0.04] hover:text-txt-secondary'
                   }`}
                 >
-                  {h.text}
-                </span>
-              </button>
-            ))}
+                  {active
+                    ? <ChevronRight className="h-2.5 w-2.5 flex-shrink-0 text-accent" />
+                    : <span className="w-2.5 flex-shrink-0" />}
+                  <span
+                    className={`truncate leading-snug ${
+                      h.level === 1 ? 'text-[11px] font-semibold' :
+                      h.level === 2 ? 'text-[11px] font-medium' :
+                      'text-[10px]'
+                    }`}
+                  >
+                    {h.text}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

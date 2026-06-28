@@ -38,7 +38,7 @@ export const CreateVersionSchema = z.object({
 export const AIRequestSchema = z.object({
   prompt: z.string().min(1).max(10_000),
   context: z.string().max(50_000).optional(),
-  action: z.enum(['improve', 'summarize', 'grammar', 'shorten', 'custom', 'formal', 'continue', 'review']),
+  action: z.enum(['improve', 'summarize', 'grammar', 'shorten', 'custom', 'formal', 'continue', 'review', 'template']),
 });
 
 export const CreateCommentSchema = z.object({

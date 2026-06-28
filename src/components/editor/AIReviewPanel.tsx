@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Loader2, AlertCircle, ThumbsUp, AlertTriangle, Lightbulb, RefreshCw } from 'lucide-react';
+import { Sparkles, Loader2, AlertCircle, ThumbsUp, AlertTriangle, Lightbulb, RefreshCw } from 'lucide-react';
+import { SidePanel } from '@/components/ui';
 
 interface ReviewResult {
   score: number;
@@ -101,51 +102,41 @@ export function AIReviewPanel({ content, title, onClose }: Props) {
   const dashOffset = review ? 100 - review.score * 10 : 100;
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-80 bg-[#111113] border-l border-[#1F1F23] z-30 flex flex-col shadow-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1F1F23] flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#6366F1]" />
-          <span className="text-white text-sm font-semibold">AI Review</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={run}
-            disabled={loading}
-            title="Re-run review"
-            className="p-1.5 text-[#52525B] hover:text-white transition-colors rounded-lg hover:bg-[#1F1F23] disabled:opacity-40"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-[#52525B] hover:text-white transition-colors rounded-lg hover:bg-[#1F1F23]"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+    <SidePanel
+      onClose={onClose}
+      title="AI Review"
+      icon={<Sparkles className="h-3.5 w-3.5 text-white" />}
+      width={320}
+      headerExtra={
+        <button
+          onClick={run}
+          disabled={loading}
+          title="Re-run review"
+          className="rounded-lg p-2 text-txt-muted transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      }
+    >
+      <div className="space-y-3 p-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader2 className="w-6 h-6 animate-spin text-[#6366F1]" />
-            <p className="text-[#52525B] text-xs text-center leading-relaxed">
+          <div className="flex flex-col items-center justify-center gap-3 py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-accent" />
+            <p className="text-center text-xs leading-relaxed text-txt-muted">
               Analyzing your document…<br />This may take a moment.
             </p>
           </div>
         ) : error ? (
-          <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-red-400 text-xs leading-relaxed">{error}</p>
+          <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
+            <p className="text-xs leading-relaxed text-red-400">{error}</p>
           </div>
         ) : review ? (
           <>
             {/* Score ring */}
-            <div className="flex items-center gap-4 p-4 bg-[#0A0A0B] border border-[#1F1F23] rounded-xl">
-              <div className="relative w-16 h-16 flex-shrink-0">
-                <svg className="w-16 h-16 -rotate-90" viewBox="0 0 36 36">
+            <div className="flex items-center gap-4 rounded-xl border border-line bg-white/[0.02] p-4">
+              <div className="relative h-16 w-16 flex-shrink-0">
+                <svg className="h-16 w-16 -rotate-90" viewBox="0 0 36 36">
                   <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#1F1F23" strokeWidth="3" />
                   <circle
                     cx="18" cy="18" r="15.9155"
@@ -159,40 +150,38 @@ export function AIReviewPanel({ content, title, onClose }: Props) {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-white text-xl font-bold tabular-nums">{review.score}</span>
+                  <span className="text-xl font-bold tabular-nums text-white">{review.score}</span>
                 </div>
               </div>
               <div>
-                <div className="text-white text-sm font-semibold">Quality Score</div>
-                <div className="text-[#52525B] text-xs mt-0.5">out of 10</div>
-                <div className="text-xs mt-1.5 font-medium" style={{ color: scoreColor }}>
+                <div className="text-sm font-semibold text-white">Quality Score</div>
+                <div className="mt-0.5 text-xs text-txt-muted">out of 10</div>
+                <div className="mt-1.5 text-xs font-medium" style={{ color: scoreColor }}>
                   {review.score >= 8 ? 'Excellent' : review.score >= 6 ? 'Good — improvable' : 'Needs work'}
                 </div>
               </div>
             </div>
 
-            {/* Overview */}
             {review.summary && (
-              <div className="p-3 bg-[#0A0A0B] border border-[#1F1F23] rounded-xl">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Sparkles className="w-3 h-3 text-[#6366F1]" />
-                  <span className="text-[#6366F1] text-[10px] font-semibold uppercase tracking-wider">Overview</span>
+              <div className="rounded-xl border border-line bg-white/[0.02] p-3">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3 text-accent" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-accent">Overview</span>
                 </div>
-                <p className="text-[#A1A1AA] text-[11px] leading-relaxed">{review.summary}</p>
+                <p className="text-[11px] leading-relaxed text-txt-secondary">{review.summary}</p>
               </div>
             )}
 
-            {/* Strengths */}
             {review.strengths.length > 0 && (
-              <div className="p-3 bg-[#0A0A0B] border border-[#1F1F23] rounded-xl">
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <ThumbsUp className="w-3 h-3 text-emerald-400" />
-                  <span className="text-emerald-400 text-[10px] font-semibold uppercase tracking-wider">Strengths</span>
+              <div className="rounded-xl border border-line bg-white/[0.02] p-3">
+                <div className="mb-2.5 flex items-center gap-1.5">
+                  <ThumbsUp className="h-3 w-3 text-emerald-400" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Strengths</span>
                 </div>
                 <ul className="space-y-2">
                   {review.strengths.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[11px] text-[#A1A1AA] leading-relaxed">
-                      <span className="text-emerald-400 flex-shrink-0">✓</span>
+                    <li key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-txt-secondary">
+                      <span className="flex-shrink-0 text-emerald-400">✓</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -200,17 +189,16 @@ export function AIReviewPanel({ content, title, onClose }: Props) {
               </div>
             )}
 
-            {/* Issues */}
             {review.issues.length > 0 && (
-              <div className="p-3 bg-[#0A0A0B] border border-[#1F1F23] rounded-xl">
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <AlertTriangle className="w-3 h-3 text-amber-400" />
-                  <span className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider">Issues</span>
+              <div className="rounded-xl border border-line bg-white/[0.02] p-3">
+                <div className="mb-2.5 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3 w-3 text-amber-400" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">Issues</span>
                 </div>
                 <ul className="space-y-2">
                   {review.issues.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[11px] text-[#A1A1AA] leading-relaxed">
-                      <span className="text-amber-400 flex-shrink-0">!</span>
+                    <li key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-txt-secondary">
+                      <span className="flex-shrink-0 text-amber-400">!</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -218,17 +206,16 @@ export function AIReviewPanel({ content, title, onClose }: Props) {
               </div>
             )}
 
-            {/* Suggestions */}
             {review.suggestions.length > 0 && (
-              <div className="p-3 bg-[#0A0A0B] border border-[#6366F1]/20 rounded-xl">
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <Lightbulb className="w-3 h-3 text-[#818CF8]" />
-                  <span className="text-[#818CF8] text-[10px] font-semibold uppercase tracking-wider">Suggestions</span>
+              <div className="rounded-xl border border-accent/20 bg-white/[0.02] p-3">
+                <div className="mb-2.5 flex items-center gap-1.5">
+                  <Lightbulb className="h-3 w-3 text-[#818CF8]" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#818CF8]">Suggestions</span>
                 </div>
                 <ul className="space-y-2">
                   {review.suggestions.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[11px] text-[#A1A1AA] leading-relaxed">
-                      <span className="text-[#6366F1] font-semibold flex-shrink-0 tabular-nums">{i + 1}.</span>
+                    <li key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-txt-secondary">
+                      <span className="flex-shrink-0 font-semibold tabular-nums text-accent">{i + 1}.</span>
                       <span>{s}</span>
                     </li>
                   ))}
@@ -238,6 +225,6 @@ export function AIReviewPanel({ content, title, onClose }: Props) {
           </>
         ) : null}
       </div>
-    </div>
+    </SidePanel>
   );
 }

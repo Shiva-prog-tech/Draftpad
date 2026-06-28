@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { X, GitBranch, Loader2, AlertCircle, Download, RefreshCw } from 'lucide-react';
+import { GitBranch, Loader2, AlertCircle, Download, RefreshCw } from 'lucide-react';
+import { SidePanel } from '@/components/ui';
 
 interface DiagramBlock {
   index: number;
@@ -96,92 +97,75 @@ export function MermaidPanel({ content, onClose }: Props) {
   };
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-[420px] bg-[#111113] border-l border-[#1F1F23] z-30 flex flex-col shadow-2xl animate-[slideRight_0.2s_ease-out]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1F1F23] flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <GitBranch className="w-4 h-4 text-[#6366F1]" />
-          <span className="text-white text-sm font-semibold">Diagrams</span>
-          {diagrams.length > 0 && (
-            <span className="text-[10px] bg-[#6366F1]/20 text-[#6366F1] px-1.5 py-0.5 rounded-full font-medium">
-              {diagrams.length}
-            </span>
-          )}
+    <SidePanel
+      onClose={onClose}
+      title="Diagrams"
+      icon={<GitBranch className="h-3.5 w-3.5 text-white" />}
+      width={420}
+      subtitle={diagrams.length ? `${diagrams.length} diagram${diagrams.length !== 1 ? 's' : ''}` : undefined}
+      headerExtra={
+        <button
+          onClick={() => setTick(t => t + 1)}
+          title="Re-render diagrams"
+          className="rounded-lg p-2 text-txt-muted transition-colors hover:bg-white/[0.06] hover:text-white"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </button>
+      }
+    >
+      {loading ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <Loader2 className="h-5 w-5 animate-spin text-accent" />
+          <span className="text-xs text-txt-muted">Rendering diagrams…</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setTick(t => t + 1)}
-            title="Re-render diagrams"
-            className="p-1.5 text-[#52525B] hover:text-white transition-colors rounded-lg hover:bg-[#1F1F23]"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onClose} className="p-1.5 text-[#52525B] hover:text-white transition-colors rounded-lg hover:bg-[#1F1F23]">
-            <X className="w-4 h-4" />
-          </button>
+      ) : diagrams.length === 0 ? (
+        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white/[0.02]">
+            <GitBranch className="h-5 w-5 text-[#2a2a2e]" />
+          </div>
+          <p className="text-xs font-medium text-txt-muted">No diagrams found</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-[#3F3F46]">
+            Type <span className="text-accent">/diagram</span> to insert a Mermaid block
+          </p>
         </div>
-      </div>
-
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-[#6366F1]" />
-            <span className="text-[#52525B] text-xs">Rendering diagrams…</span>
-          </div>
-        ) : diagrams.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <div className="w-10 h-10 bg-[#0A0A0B] border border-[#1F1F23] rounded-xl flex items-center justify-center mb-3">
-              <GitBranch className="w-5 h-5 text-[#2a2a2e]" />
-            </div>
-            <p className="text-[#52525B] text-xs font-medium">No diagrams found</p>
-            <p className="text-[#3F3F46] text-[10px] mt-1 leading-relaxed">
-              Type <span className="text-[#6366F1]">/diagram</span> to insert a Mermaid block
-            </p>
-          </div>
-        ) : (
-          <div className="p-4 space-y-4">
-            {diagrams.map((d, i) => (
-              <div key={d.id} className="bg-[#0A0A0B] border border-[#1F1F23] rounded-xl overflow-hidden">
-                {/* Card header */}
-                <div className="flex items-center justify-between px-3 py-2 border-b border-[#1F1F23]">
-                  <span className="text-[#52525B] text-[11px] font-medium">Diagram {i + 1}</span>
-                  <button
-                    onClick={() => downloadSVG(d.id, i)}
-                    disabled={!svgMap[d.id]}
-                    className="flex items-center gap-1 text-[#52525B] hover:text-white disabled:opacity-30 transition-colors text-[10px] px-2 py-1 rounded hover:bg-[#1F1F23]"
-                  >
-                    <Download className="w-3 h-3" /> SVG
-                  </button>
-                </div>
-
-                {/* Error */}
-                {errMap[d.id] && (
-                  <div className="p-3 flex items-start gap-2">
-                    <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-red-400 text-[10px] font-mono break-all">{errMap[d.id]}</p>
-                  </div>
-                )}
-
-                {/* SVG render */}
-                {svgMap[d.id] && !errMap[d.id] && (
-                  <div
-                    className="p-4 overflow-auto [&_svg]:max-w-full [&_svg]:h-auto"
-                    dangerouslySetInnerHTML={{ __html: svgMap[d.id] }}
-                  />
-                )}
-
-                {/* Code preview */}
-                <div className="border-t border-[#1F1F23] bg-[#060607]">
-                  <pre className="px-3 py-2 text-[#52525B] text-[9px] font-mono overflow-x-auto whitespace-pre-wrap line-clamp-4">
-                    {d.code}
-                  </pre>
-                </div>
+      ) : (
+        <div className="space-y-4 p-4">
+          {diagrams.map((d, i) => (
+            <div key={d.id} className="overflow-hidden rounded-xl border border-line bg-white/[0.02]">
+              <div className="flex items-center justify-between border-b border-line px-3 py-2">
+                <span className="text-[11px] font-medium text-txt-muted">Diagram {i + 1}</span>
+                <button
+                  onClick={() => downloadSVG(d.id, i)}
+                  disabled={!svgMap[d.id]}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-[10px] text-txt-muted transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-30"
+                >
+                  <Download className="h-3 w-3" /> SVG
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+
+              {errMap[d.id] && (
+                <div className="flex items-start gap-2 p-3">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-400" />
+                  <p className="break-all font-mono text-[10px] text-red-400">{errMap[d.id]}</p>
+                </div>
+              )}
+
+              {svgMap[d.id] && !errMap[d.id] && (
+                <div
+                  className="overflow-auto p-4 [&_svg]:h-auto [&_svg]:max-w-full"
+                  dangerouslySetInnerHTML={{ __html: svgMap[d.id] }}
+                />
+              )}
+
+              <div className="border-t border-line bg-black/30">
+                <pre className="line-clamp-4 overflow-x-auto whitespace-pre-wrap px-3 py-2 font-mono text-[9px] text-txt-muted">
+                  {d.code}
+                </pre>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SidePanel>
   );
 }
