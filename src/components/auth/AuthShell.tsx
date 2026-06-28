@@ -37,7 +37,7 @@ function LinkedInIcon() {
 const PROVIDERS = [
   { id: 'github', label: 'Continue with GitHub', Icon: GitHubIcon },
   { id: 'google', label: 'Continue with Google', Icon: GoogleIcon },
-  { id: 'linkedin', label: 'Continue with LinkedIn', Icon: LinkedInIcon },
+  // { id: 'linkedin', label: 'Continue with LinkedIn', Icon: LinkedInIcon },
 ];
 
 const FEATURES = [

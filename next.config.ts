@@ -2,7 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: { serverActions: { allowedOrigins: ["*"] } },
-  images: { domains: ["avatars.githubusercontent.com", "lh3.googleusercontent.com"] },
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+    ],
+  },
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       // pptxgenjs' ESM build statically references node: built-ins for its Node
