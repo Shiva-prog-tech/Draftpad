@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: { serverActions: { allowedOrigins: ["*"] } },
+  // Pin the workspace root — a stray lockfile in a parent folder confused Next's
+  // root inference (it picked C:\Users\sshiv\Downloads). This forces the project dir.
+  outputFileTracingRoot: process.cwd(),
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
