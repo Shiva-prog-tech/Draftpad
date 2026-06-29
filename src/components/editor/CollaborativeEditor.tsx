@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -23,6 +24,7 @@ import { AIReviewPanel }     from '@/components/editor/AIReviewPanel';
 import { CodeRunnerPanel }   from '@/components/editor/CodeRunnerPanel';
 import { BacklinksPanel }    from '@/components/editor/BacklinksPanel';
 import { printDocument }     from '@/lib/pdf-export';
+import { ProductTour }       from '@/components/tour';
 import { RichEditor, RichEditorHandle } from '@/packages/rich-editor';
 import { encodeState } from '@/lib/crdt/yjs-utils';
 import { TEMPLATES } from '@/lib/templates';
@@ -358,6 +360,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
 
         <div className="flex items-center gap-2 flex-1 min-w-0 max-sm:w-28 max-sm:flex-none">
           <input
+            data-tour="editor-title"
             value={title}
             onChange={handleTitleChange}
             disabled={isViewer}
@@ -370,6 +373,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
         {/* Actions — horizontally scrollable on mobile so every tool is reachable */}
         <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto no-scrollbar">
           <button
+            data-tour="tool-contents"
             onClick={() => setShowTOC(v => !v)}
             title="Table of Contents"
             className={`flex items-center gap-1.5 border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${showTOC ? 'text-[#6366F1]' : 'text-[#71717A] hover:text-white'}`}
@@ -377,14 +381,16 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
             <BookOpen className="w-3.5 h-3.5" /><span className="hidden lg:inline">Contents</span>
           </button>
           <button
+            data-tour="tool-diagrams"
             onClick={() => setShowMermaid(v => !v)}
             title="Diagrams"
             className={`flex items-center gap-1.5 border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${showMermaid ? 'text-[#6366F1]' : 'text-[#71717A] hover:text-white'}`}
           >
             <GitBranch className="w-3.5 h-3.5" /><span className="hidden lg:inline">Diagrams</span>
           </button>
-        
+
           <button
+            data-tour="tool-run"
             onClick={() => setShowCodeRunner(v => !v)}
             title="Run code blocks"
             className={`flex items-center gap-1.5 border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${showCodeRunner ? 'text-[#6366F1]' : 'text-[#71717A] hover:text-white'}`}
@@ -392,6 +398,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
             <Terminal className="w-3.5 h-3.5" /><span className="hidden lg:inline">Run</span>
           </button>
           <button
+            data-tour="tool-links"
             onClick={() => setShowBacklinks(v => !v)}
             title="Backlinks"
             className={`flex items-center gap-1.5 border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${showBacklinks ? 'text-[#6366F1]' : 'text-[#71717A] hover:text-white'}`}
@@ -399,6 +406,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
             <Link2 className="w-3.5 h-3.5" /><span className="hidden lg:inline">Links</span>
           </button>
           <button
+            data-tour="tool-review"
             onClick={() => setShowReview(v => !v)}
             title="AI Document Review"
             className={`flex items-center gap-1.5 border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${showReview ? 'text-[#6366F1]' : 'text-[#71717A] hover:text-white'}`}
@@ -407,7 +415,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
           </button>
          
            {/* Workflow status badge */}
-          <div className="relative flex-shrink-0">
+          <div data-tour="tool-status" className="relative flex-shrink-0">
             <button
               ref={statusBtnRef}
               onClick={() => !isViewer && setStatusOpen(o => !o)}
@@ -425,27 +433,6 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
               <span className="hidden sm:inline">{WORKFLOW_CONFIG[workflowStatus].label}</span>
               {!isViewer && <ChevronDown className="w-2.5 h-2.5 opacity-60" />}
             </button>
-
-            {statusOpen && (
-              <div
-                style={{
-                  position: 'fixed',
-                  top: (statusBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-                  left: statusBtnRef.current?.getBoundingClientRect().left ?? 0,
-                }}
-                className="w-36 bg-[#111113] border border-[#1F1F23] rounded-xl shadow-2xl z-50 overflow-hidden">
-                {(Object.keys(WORKFLOW_CONFIG) as WorkflowStatus[]).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => handleWorkflowStatus(s)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-[#1F1F23] ${workflowStatus === s ? 'text-white' : 'text-[#71717A]'}`}
-                  >
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: WORKFLOW_CONFIG[s].color }} />
-                    {WORKFLOW_CONFIG[s].label}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
              {/* Collaborator avatars */}
         <div className="hidden sm:flex items-center">
@@ -474,6 +461,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
         <span className="hidden md:block text-[#52525B] text-xs flex-shrink-0">
           {wordCount.toLocaleString()} words
         </span>
+          <span data-tour="tool-export" className="flex items-center gap-1.5">
           <button
             onClick={handleExportMarkdown}
             title="Export as Markdown"
@@ -488,19 +476,23 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
           >
             <Printer className="w-3.5 h-3.5" /><span className="hidden lg:inline">PDF</span>
           </button>
+          </span>
             <button
+            data-tour="tool-comments"
             onClick={() => setShowComments(v => !v)}
             className={`flex items-center gap-1.5 border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${showComments ? 'text-[#6366F1]' : 'text-[#71717A] hover:text-white'}`}
           >
             <MessageSquare className="w-3.5 h-3.5" /><span className="hidden sm:inline">Comments</span>
           </button>
           <button
+            data-tour="tool-history"
             onClick={() => { setShowVersions(!showVersions); if (!showVersions) refetchVersions(); }}
             className="flex items-center gap-1.5 text-[#71717A] hover:text-white border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
           >
             <Clock className="w-3.5 h-3.5" /><span className="hidden sm:inline">History</span>
           </button>
          <button
+            data-tour="tool-focus"
             onClick={toggleZenMode}
             title="Focus mode (Esc to exit)"
             className="flex items-center gap-1.5 text-[#71717A] hover:text-white border border-transparent hover:border-[#1F1F23] hover:bg-[#111113] rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
@@ -508,6 +500,7 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
             <Maximize2 className="w-3.5 h-3.5" /><span className="hidden lg:inline">Focus</span>
           </button>
           <button
+            data-tour="tool-share"
             onClick={() => { setShowShare(true); refreshCollabs(); }}
             className="flex items-center gap-1.5 bg-[#6366F1] hover:bg-[#5254CC] text-white rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
           >
@@ -517,11 +510,11 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
       </div>
 
       {/* Editor area with optional TOC sidebar */}
-      <div className="flex-1 min-h-0 flex" onKeyDown={handleEditorKeyDown}>
+      <div className="flex-1 min-h-0 flex min-w-0" onKeyDown={handleEditorKeyDown}>
         {showTOC && !zenMode && (
           <TableOfContents content={content} onClose={() => setShowTOC(false)} />
         )}
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div data-tour="editor-canvas" className="flex-1 min-w-0 min-h-0 flex flex-col">
           <RichEditor
             ref={richEditorRef}
             content={content}
@@ -682,9 +675,35 @@ export function CollaborativeEditor({ doc, templateId }: Props) {
           </div>
         </div>
       )}
-      {statusOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setStatusOpen(false)} />
+      {/* Workflow status menu — portaled to body so it escapes the top bar's
+          backdrop-blur stacking context (otherwise the close-backdrop sits on
+          top of the menu and swallows the click). */}
+      {statusOpen && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setStatusOpen(false)} />
+          <div
+            style={{
+              position: 'fixed',
+              top: (statusBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+              left: statusBtnRef.current?.getBoundingClientRect().left ?? 0,
+            }}
+            className="w-36 bg-[#111113] border border-[#1F1F23] rounded-xl shadow-2xl z-[61] overflow-hidden">
+            {(Object.keys(WORKFLOW_CONFIG) as WorkflowStatus[]).map(s => (
+              <button
+                key={s}
+                onClick={() => handleWorkflowStatus(s)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-[#1F1F23] ${workflowStatus === s ? 'text-white' : 'text-[#71717A]'}`}
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: WORKFLOW_CONFIG[s].color }} />
+                {WORKFLOW_CONFIG[s].label}
+              </button>
+            ))}
+          </div>
+        </>,
+        document.body,
       )}
+
+      <ProductTour surface="editor" hideLauncher={zenMode} />
     </div>
   );
 }

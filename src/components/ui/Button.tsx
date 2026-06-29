@@ -27,6 +27,8 @@ interface ButtonProps extends HTMLMotionProps<'button'> {
   /** Animated light sweep on hover (primary only). Defaults on. */
   sheen?: boolean;
   children?: ReactNode;
+  /** Allow forwarding data-* attributes (e.g. data-tour) to the element. */
+  [dataAttr: `data-${string}`]: unknown;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

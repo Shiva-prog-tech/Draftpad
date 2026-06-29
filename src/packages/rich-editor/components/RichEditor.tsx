@@ -192,7 +192,7 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
     }, [handleFormat]);
 
     return (
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
         <EditorToolbar
           onFormat={handleFormat}
           onAI={onAIToggle ?? (() => {})}
@@ -210,7 +210,7 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
         )}
 
         <div className="flex-1 overflow-auto print:overflow-visible">
-          <div className="max-w-3xl mx-auto px-4 sm:px-8 py-10 h-full print:max-w-none print:px-0 print:py-0">
+          <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10 h-full print:max-w-none print:px-0 print:py-0">
             <div
               ref={editorRef}
               contentEditable={!readOnly}
