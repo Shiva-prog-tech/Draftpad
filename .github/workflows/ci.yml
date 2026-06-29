@@ -42,7 +42,7 @@ jobs:
       AUTH_SECRET: ci-build-placeholder-secret-32-chars-ok
       NEXTAUTH_SECRET: ci-build-placeholder-secret-32-chars-ok
       MONGODB_URI: mongodb://localhost:27017/draftpad
-      NEXT_PUBLIC_APP_URL: https://draftpad.vercel.app
+      NEXT_PUBLIC_APP_URL: https://draftpadio.vercel.app
       GROQ_API_KEY: placeholder
     steps:
       - uses: actions/checkout@v4
