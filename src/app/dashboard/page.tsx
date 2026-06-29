@@ -15,6 +15,7 @@ import { TEMPLATES, type DocTemplate } from '@/lib/templates';
 import { getCustomTemplates, saveCustomTemplate, removeCustomTemplate, type CustomTemplate } from '@/lib/custom-templates';
 import { coverImageUrl, hashSeed } from '@/lib/cover-image';
 import { Button, Card, Modal } from '@/components/ui';
+import { ProductTour } from '@/components/tour';
 import { fadeUp, stagger } from '@/lib/motion';
 import { toast } from '@/lib/toast';
 
@@ -286,10 +287,11 @@ export default function DashboardPage() {
   const sharedDocs = docs.filter(d => d.createdBy !== session?.user?.id);
 
   const renderDocCards = (items: DocPreview[]) =>
-    items.map(doc => (
+    items.map((doc, i) => (
       <DocCard
         key={doc._id}
         doc={doc}
+        dataTour={i === 0 ? 'dash-card' : undefined}
         isOwner={doc.createdBy === session?.user?.id}
         reduce={!!reduce}
         menuOpen={menuOpen === doc._id}
@@ -312,7 +314,7 @@ export default function DashboardPage() {
           <span className="text-sm font-semibold tracking-tight text-white">Draftpad</span>
         </div>
 
-        <nav className="flex-1 space-y-0.5">
+        <nav data-tour="dash-nav" className="flex-1 space-y-0.5">
           {NAV.map(item => {
             const active = view === item.key;
             return (
@@ -329,7 +331,7 @@ export default function DashboardPage() {
           })}
         </nav>
 
-        <div className="mt-4 border-t border-line pt-4">
+        <div data-tour="dash-account" className="mt-4 border-t border-line pt-4">
           <div className="mb-3 flex items-center gap-2.5 px-1">
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent-grad text-xs font-semibold text-white ring-2 ring-white/10">
               {session?.user?.name?.[0]?.toUpperCase()}
@@ -375,20 +377,20 @@ export default function DashboardPage() {
                 <p className="mt-0.5 text-sm text-txt-muted">{docs.length} document{docs.length !== 1 ? 's' : ''} total</p>
               </div>
               <div className="flex items-center gap-2 self-start sm:self-auto">
-                <Button variant="secondary" onClick={() => setShowTemplates(true)} disabled={creating}>
+                <Button data-tour="dash-templates" variant="secondary" onClick={() => setShowTemplates(true)} disabled={creating}>
                   <LayoutTemplate className="h-4 w-4" />Templates
                 </Button>
-                <Button onClick={createDoc} loading={creating} disabled={creating}>
+                <Button data-tour="dash-new" onClick={createDoc} loading={creating} disabled={creating}>
                   {!creating && <Plus className="h-4 w-4" />}New document
                 </Button>
               </div>
             </div>
 
-            <div className="group relative mb-4">
+            <div data-tour="dash-search" className="group relative mb-4">
               <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-muted" />
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search documents…"
                 className="w-full rounded-xl border border-line bg-white/[0.02] py-2.5 pl-10 pr-16 text-sm text-white placeholder-[#3F3F46] transition-all focus:border-accent focus:shadow-glow-accent-sm focus:outline-none focus:ring-1 focus:ring-accent/40" />
-              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-line bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-txt-muted">⌘K</kbd>
+              <kbd data-tour="dash-cmdk" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-line bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-txt-muted">⌘K</kbd>
             </div>
           </div>
         </div>
@@ -651,6 +653,8 @@ export default function DashboardPage() {
           </div>
         )}
       </Modal>
+
+      <ProductTour surface="dashboard" />
     </div>
   );
 }
@@ -663,15 +667,16 @@ interface DocCardProps {
   reduce: boolean;
   menuOpen: boolean;
   deleting: boolean;
+  dataTour?: string;
   onToggleMenu: (e: React.MouseEvent) => void;
   onOpen: () => void;
   onDelete: (e: React.MouseEvent) => void;
   onSaveTemplate: () => void;
 }
 
-function DocCard({ doc, isOwner, reduce, menuOpen, deleting, onToggleMenu, onOpen, onDelete, onSaveTemplate }: DocCardProps) {
+function DocCard({ doc, isOwner, reduce, menuOpen, deleting, dataTour, onToggleMenu, onOpen, onDelete, onSaveTemplate }: DocCardProps) {
   return (
-    <Card variants={fadeUp} interactive glow onClick={onOpen} className="group p-5">
+    <Card data-tour={dataTour} variants={fadeUp} interactive glow onClick={onOpen} className="group p-5">
       <div className={`absolute left-0 top-4 bottom-4 w-0.5 rounded-r-full ${isOwner ? 'bg-gradient-to-b from-[#6366F1] to-[#8B5CF6]' : 'bg-[#52525B]'}`} />
 
       <div className="mb-3 flex items-start justify-between">

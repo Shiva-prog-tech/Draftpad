@@ -9,6 +9,8 @@ interface CardProps extends HTMLMotionProps<'div'> {
   /** Soft accent gradient glow that fades in on hover. */
   glow?: boolean;
   children?: ReactNode;
+  /** Allow forwarding data-* attributes (e.g. data-tour) to the element. */
+  [dataAttr: `data-${string}`]: unknown;
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
